@@ -5,12 +5,17 @@ Downloads each required file from raw.githubusercontent.com at the pinned SHA an
 verifies both the byte size and the git blob SHA-1 (as reported by the GitHub git
 tree API), so the vendored copy is provably identical to upstream.
 
+Network calls are retried (CI runners sometimes hit SSL/handshake timeouts).
+
 Usage:  python scripts/fetch_rnnoise.py
 """
 from __future__ import annotations
 
 import hashlib
+import io
 import sys
+import tarfile
+import time
 import urllib.request
 from pathlib import Path
 
@@ -58,11 +63,6 @@ FILES: dict[str, tuple[str, int]] = {
     "src/x86/x86cpu.h": ("e214abab547a8f6550163dd15bac5e5131a981db", 3456),
 }
 
-
-def git_blob_sha1(data: bytes) -> str:
-    return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
-
-
 # The neural-network weights are distributed separately from the git repo
 # (see upstream download_model.sh): a tarball on media.xiph.org whose sha256
 # must equal the contents of the repo's `model_version` file.
@@ -71,23 +71,34 @@ MODEL_URL = f"https://media.xiph.org/rnnoise/models/rnnoise_data-{MODEL_VERSION}
 MODEL_FILES = ["src/rnnoise_data.c", "src/rnnoise_data.h"]
 
 
-def fetch_model() -> bool:
-    import hashlib as hl
-    import tarfile
+def git_blob_sha1(data: bytes) -> str:
+    return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
 
+
+def download(url: str, timeout: int = 120, tries: int = 5) -> bytes | None:
+    """GET url with retries and backoff. Returns bytes, or None after all tries fail."""
+    for attempt in range(1, tries + 1):
+        try:
+            with urllib.request.urlopen(url, timeout=timeout) as r:
+                return r.read()
+        except Exception as e:  # noqa: BLE001
+            print(f"  attempt {attempt}/{tries} failed for {url}: {e}")
+            if attempt < tries:
+                time.sleep(5 * attempt)
+    return None
+
+
+def fetch_model() -> bool:
     print(f"model tarball: {MODEL_URL}")
-    try:
-        with urllib.request.urlopen(MODEL_URL, timeout=120) as r:
-            data = r.read()
-    except Exception as e:  # noqa: BLE001
-        print(f"FAIL download model: {e}")
+    data = download(MODEL_URL, timeout=180, tries=5)
+    if data is None:
+        print("FAIL download model after all retries")
         return False
-    digest = hl.sha256(data).hexdigest()
+    digest = hashlib.sha256(data).hexdigest()
     if digest != MODEL_VERSION:
         print(f"FAIL model sha256 mismatch: {digest}")
         return False
     print(f"OK   model sha256 verified ({digest[:12]}...), {len(data)} bytes")
-    import io
 
     with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tf:
         for member in MODEL_FILES:
@@ -108,12 +119,9 @@ def main() -> int:
     if not fetch_model():
         failures += 1
     for rel, (want_sha, want_size) in sorted(FILES.items()):
-        url = BASE + rel
-        try:
-            with urllib.request.urlopen(url, timeout=60) as r:
-                data = r.read()
-        except Exception as e:  # noqa: BLE001 - report and continue
-            print(f"FAIL download {rel}: {e}")
+        data = download(BASE + rel, timeout=60, tries=5)
+        if data is None:
+            print(f"FAIL download {rel}")
             failures += 1
             continue
         got_sha = git_blob_sha1(data)
@@ -125,7 +133,8 @@ def main() -> int:
         out = DEST / rel
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_bytes(data)
-    print(f"\n{len(FILES) - failures}/{len(FILES)} files vendored and verified.")
+    total = len(FILES) + 1  # source files + model
+    print(f"\n{total - failures}/{total} items vendored and verified.")
     return 1 if failures else 0
 
 

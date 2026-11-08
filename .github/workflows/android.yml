@@ -14,6 +14,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
@@ -23,8 +24,14 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Fetch vendored RNNoise model (sha256-verified, not in git)
-        run: python3 scripts/fetch_rnnoise.py
+      - name: Fetch vendored RNNoise sources + model (hash-verified, with retries)
+        run: |
+          for i in 1 2 3; do
+            python3 scripts/fetch_rnnoise.py && exit 0
+            echo "attempt $i failed, retrying in 30s"
+            sleep 30
+          done
+          exit 1
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
@@ -58,4 +65,3 @@ jobs:
           files: android/app/build/outputs/apk/debug/app-debug.apk
           generate_release_notes: true
           prerelease: true
-

@@ -2,8 +2,12 @@
 build/
 *.obj
 *.lib
+*.dll
+*.exe
 *.pdb
 *.ilk
+*.exp
+%OBJDIR/
 
 # Python
 .venv/
@@ -22,13 +26,8 @@ tools/gradle-home/
 tools/gradle-8.10.2/
 tools/gradle-8.10.2-bin.zip
 tools/fakehome/
-tools/jni-include/
 tools/jni_host_test/classes/
-tools/jni_host_test/*.dll
-tools/jni_host_test/*.lib
-tools/jni_host_test/*.exp
 tools/native-platform.dll
-tools/*.exe
 tools/*.log
 tools/*.class
 tools/sdklist.txt
@@ -38,24 +37,16 @@ tools/try_subst.bat
 Thumbs.db
 .DS_Store
 
-# Android build caches
+# Editor
+.vscode/
+
+# Android build caches and artifacts
 android/.gradle/
 android/app/build/
 android/local.properties
+*.apk
 
 # generated benchmark artifacts (regenerable via benchmarks/*.py)
 benchmarks/out/
 benchmarks/data/
 
-# 78 MB vendored model weights — fetched + sha256-verified by scripts/fetch_rnnoise.py
-core/third_party/rnnoise/src/rnnoise_data.c
-
-
-# big local toolchains (fetch scripts in scripts/ recreate them)
-tools/android-sdk/
-tools/gradle-8.10.2/
-tools/gradle-8.10.2-bin.zip
-tools/pylibs/
-tools/jni_host_test/*.dll
-%OBJDIR/
-.vscode/
