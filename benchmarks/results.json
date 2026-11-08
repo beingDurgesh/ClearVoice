@@ -1,0 +1,288 @@
+{
+  "core_version": "0.1.0-phase2",
+  "sample_rate": 48000,
+  "mixes": {
+    "mix_babble_0db": {
+      "input_snr_db": 0.01,
+      "rnnoise": {
+        "snr_db": -0.02,
+        "si_sdr_db": -0.11,
+        "clipping": 269,
+        "out_rms": 0.2555,
+        "lag_samples": -959
+      },
+      "passthrough": {
+        "snr_db": 0.01,
+        "si_sdr_db": 0.01,
+        "clipping": 215,
+        "out_rms": 0.25613,
+        "lag_samples": 0
+      }
+    },
+    "mix_babble_10db": {
+      "input_snr_db": 10.0,
+      "rnnoise": {
+        "snr_db": 9.69,
+        "si_sdr_db": 9.68,
+        "clipping": 0,
+        "out_rms": 0.19049,
+        "lag_samples": -959
+      },
+      "passthrough": {
+        "snr_db": 10.0,
+        "si_sdr_db": 10.01,
+        "clipping": 0,
+        "out_rms": 0.19007,
+        "lag_samples": 0
+      }
+    },
+    "mix_babble_5db": {
+      "input_snr_db": 5.0,
+      "rnnoise": {
+        "snr_db": 4.89,
+        "si_sdr_db": 4.87,
+        "clipping": 15,
+        "out_rms": 0.20843,
+        "lag_samples": -959
+      },
+      "passthrough": {
+        "snr_db": 5.0,
+        "si_sdr_db": 5.01,
+        "clipping": 0,
+        "out_rms": 0.20795,
+        "lag_samples": 0
+      }
+    },
+    "mix_fan_0db": {
+      "input_snr_db": 0.0,
+      "rnnoise": {
+        "snr_db": 18.85,
+        "si_sdr_db": 18.83,
+        "clipping": 0,
+        "out_rms": 0.18194,
+        "lag_samples": -959
+      },
+      "passthrough": {
+        "snr_db": 0.0,
+        "si_sdr_db": -0.01,
+        "clipping": 294,
+        "out_rms": 0.25601,
+        "lag_samples": 0
+      }
+    },
+    "mix_fan_10db": {
+      "input_snr_db": 10.0,
+      "rnnoise": {
+        "snr_db": 21.36,
+        "si_sdr_db": 21.36,
+        "clipping": 0,
+        "out_rms": 0.18159,
+        "lag_samples": -959
+      },
+      "passthrough": {
+        "snr_db": 10.0,
+        "si_sdr_db": 10.0,
+        "clipping": 0,
+        "out_rms": 0.18999,
+        "lag_samples": 0
+      }
+    },
+    "mix_fan_5db": {
+      "input_snr_db": 5.0,
+      "rnnoise": {
+        "snr_db": 20.61,
+        "si_sdr_db": 20.61,
+        "clipping": 0,
+        "out_rms": 0.1817,
+        "lag_samples": -959
+      },
+      "passthrough": {
+        "snr_db": 5.0,
+        "si_sdr_db": 5.0,
+        "clipping": 0,
+        "out_rms": 0.20781,
+        "lag_samples": 0
+      }
+    },
+    "mix_hum_0db": {
+      "input_snr_db": 0.0,
+      "rnnoise": {
+        "snr_db": -0.15,
+        "si_sdr_db": -0.18,
+        "clipping": 761,
+        "out_rms": 0.25822,
+        "lag_samples": -959
+      },
+      "passthrough": {
+        "snr_db": 0.0,
+        "si_sdr_db": -0.01,
+        "clipping": 55,
+        "out_rms": 0.25603,
+        "lag_samples": 0
+      }
+    },
+    "mix_hum_10db": {
+      "input_snr_db": 10.0,
+      "rnnoise": {
+        "snr_db": 9.6,
+        "si_sdr_db": 9.58,
+        "clipping": 0,
+        "out_rms": 0.19056,
+        "lag_samples": -959
+      },
+      "passthrough": {
+        "snr_db": 10.0,
+        "si_sdr_db": 10.0,
+        "clipping": 0,
+        "out_rms": 0.18993,
+        "lag_samples": 0
+      }
+    },
+    "mix_hum_5db": {
+      "input_snr_db": 5.0,
+      "rnnoise": {
+        "snr_db": 4.79,
+        "si_sdr_db": 4.76,
+        "clipping": 0,
+        "out_rms": 0.20881,
+        "lag_samples": -959
+      },
+      "passthrough": {
+        "snr_db": 5.0,
+        "si_sdr_db": 5.0,
+        "clipping": 0,
+        "out_rms": 0.20773,
+        "lag_samples": 0
+      }
+    },
+    "mix_keyboard_0db": {
+      "input_snr_db": 8.71,
+      "rnnoise": {
+        "snr_db": 8.58,
+        "si_sdr_db": 8.44,
+        "clipping": 495,
+        "out_rms": 0.19282,
+        "lag_samples": -959
+      },
+      "passthrough": {
+        "snr_db": 8.71,
+        "si_sdr_db": 8.68,
+        "clipping": 964,
+        "out_rms": 0.19243,
+        "lag_samples": 0
+      }
+    },
+    "mix_keyboard_10db": {
+      "input_snr_db": 12.46,
+      "rnnoise": {
+        "snr_db": 12.07,
+        "si_sdr_db": 11.95,
+        "clipping": 142,
+        "out_rms": 0.18649,
+        "lag_samples": -959
+      },
+      "passthrough": {
+        "snr_db": 12.46,
+        "si_sdr_db": 12.45,
+        "clipping": 279,
+        "out_rms": 0.1861,
+        "lag_samples": 0
+      }
+    },
+    "mix_keyboard_5db": {
+      "input_snr_db": 10.25,
+      "rnnoise": {
+        "snr_db": 10.03,
+        "si_sdr_db": 9.91,
+        "clipping": 314,
+        "out_rms": 0.18959,
+        "lag_samples": -959
+      },
+      "passthrough": {
+        "snr_db": 10.25,
+        "si_sdr_db": 10.23,
+        "clipping": 611,
+        "out_rms": 0.1892,
+        "lag_samples": 0
+      }
+    },
+    "mix_traffic_0db": {
+      "input_snr_db": 0.0,
+      "rnnoise": {
+        "snr_db": 19.51,
+        "si_sdr_db": 19.48,
+        "clipping": 0,
+        "out_rms": 0.18186,
+        "lag_samples": -959
+      },
+      "passthrough": {
+        "snr_db": 0.0,
+        "si_sdr_db": -0.0,
+        "clipping": 325,
+        "out_rms": 0.2561,
+        "lag_samples": 0
+      }
+    },
+    "mix_traffic_10db": {
+      "input_snr_db": 10.0,
+      "rnnoise": {
+        "snr_db": 21.45,
+        "si_sdr_db": 21.44,
+        "clipping": 0,
+        "out_rms": 0.18159,
+        "lag_samples": -959
+      },
+      "passthrough": {
+        "snr_db": 10.0,
+        "si_sdr_db": 10.0,
+        "clipping": 0,
+        "out_rms": 0.19,
+        "lag_samples": 0
+      }
+    },
+    "mix_traffic_5db": {
+      "input_snr_db": 5.0,
+      "rnnoise": {
+        "snr_db": 20.89,
+        "si_sdr_db": 20.88,
+        "clipping": 0,
+        "out_rms": 0.18168,
+        "lag_samples": -959
+      },
+      "passthrough": {
+        "snr_db": 5.0,
+        "si_sdr_db": 5.0,
+        "clipping": 0,
+        "out_rms": 0.20784,
+        "lag_samples": 0
+      }
+    }
+  },
+  "noise_only": {
+    "noise_only_babble": {
+      "noise_reduction_db": -0.02,
+      "clipping": 0,
+      "in_rms": 0.2
+    },
+    "noise_only_fan": {
+      "noise_reduction_db": 21.89,
+      "clipping": 0,
+      "in_rms": 0.2
+    },
+    "noise_only_hum": {
+      "noise_reduction_db": -0.13,
+      "clipping": 0,
+      "in_rms": 0.2
+    },
+    "noise_only_keyboard": {
+      "noise_reduction_db": -0.01,
+      "clipping": 541,
+      "in_rms": 0.0681
+    },
+    "noise_only_traffic": {
+      "noise_reduction_db": 23.45,
+      "clipping": 0,
+      "in_rms": 0.2
+    }
+  }
+}

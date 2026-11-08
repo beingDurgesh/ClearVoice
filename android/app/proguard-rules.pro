@@ -1,0 +1,2 @@
+-keep class com.clearvoice.app.audio.ClearVoiceEngine { *; }
+-keepclasseswithmembernames class * { native <methods>; }

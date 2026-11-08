@@ -1,0 +1,56 @@
+# Build outputs
+build/
+*.obj
+*.lib
+*.dll
+*.pdb
+*.exe
+*.ilk
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Tools / probes
+tools/*.exe
+tools/wheels/
+tools/cmake-pkg/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Android build caches
+android/.gradle/
+android/app/build/
+android/local.properties
+
+# local tooling debris
+tools/*.log
+tools/*.class
+tools/sdklist.txt
+tools/native-platform.dll
+tools/android-home/
+tools/gradle-home/
+tools/fakehome/
+tools/jni_host_test/classes/
+tools/jni_host_test/*.dll
+tools/jni_host_test/*.lib
+tools/jni_host_test/*.exp
+pytest-cache-files-*
+*.obj
+benchmarks/out/
+benchmarks/data/
+build/
+
+
+# big local toolchains (fetch scripts in scripts/ recreate them)
+tools/android-sdk/
+tools/gradle-8.10.2/
+tools/gradle-8.10.2-bin.zip
+tools/pylibs/
+tools/jni_host_test/*.dll
+%OBJDIR/
+.vscode/

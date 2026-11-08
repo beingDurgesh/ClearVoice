@@ -1,0 +1,11 @@
+# ClearVoice Windows app — pinned dependencies (Python 3.13, Windows x64)
+# NOTE: in this sandbox pip's temp handling is blocked, so wheels were fetched
+# hash-verified into tools/pylibs via scripts/fetch_pywheels.py + fetch_qt_wheels.py
+# and used via PYTHONPATH=tools/pylibs. On a normal machine, plain
+# `pip install -r windows/requirements.txt` works.
+numpy>=2.0,<3
+sounddevice==0.5.6        # PortAudio bindings (win_amd64 wheel bundles PortAudio)
+cffi>=1.17                # sounddevice dependency
+pycparser>=2.22           # cffi dependency
+PySide6==6.12.0           # Qt GUI (LGPL)
+pytest>=8               # tests
