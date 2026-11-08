@@ -2,9 +2,7 @@
 build/
 *.obj
 *.lib
-*.dll
 *.pdb
-*.exe
 *.ilk
 
 # Python
@@ -12,11 +10,29 @@ build/
 __pycache__/
 *.pyc
 .pytest_cache/
+pytest-cache-files-*
 
-# Tools / probes
-tools/*.exe
+# Sandbox-fetched tooling (NOT for git): wheels, Android SDK/NDK, Gradle, caches
+tools/pylibs/
 tools/wheels/
 tools/cmake-pkg/
+tools/android-sdk/
+tools/android-home/
+tools/gradle-home/
+tools/gradle-8.10.2/
+tools/gradle-8.10.2-bin.zip
+tools/fakehome/
+tools/jni-include/
+tools/jni_host_test/classes/
+tools/jni_host_test/*.dll
+tools/jni_host_test/*.lib
+tools/jni_host_test/*.exp
+tools/native-platform.dll
+tools/*.exe
+tools/*.log
+tools/*.class
+tools/sdklist.txt
+tools/try_subst.bat
 
 # OS
 Thumbs.db
@@ -27,23 +43,12 @@ android/.gradle/
 android/app/build/
 android/local.properties
 
-# local tooling debris
-tools/*.log
-tools/*.class
-tools/sdklist.txt
-tools/native-platform.dll
-tools/android-home/
-tools/gradle-home/
-tools/fakehome/
-tools/jni_host_test/classes/
-tools/jni_host_test/*.dll
-tools/jni_host_test/*.lib
-tools/jni_host_test/*.exp
-pytest-cache-files-*
-*.obj
+# generated benchmark artifacts (regenerable via benchmarks/*.py)
 benchmarks/out/
 benchmarks/data/
-build/
+
+# 78 MB vendored model weights — fetched + sha256-verified by scripts/fetch_rnnoise.py
+core/third_party/rnnoise/src/rnnoise_data.c
 
 
 # big local toolchains (fetch scripts in scripts/ recreate them)
