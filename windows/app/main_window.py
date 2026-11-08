@@ -1,8 +1,6 @@
 """ClearVoice main window — dark, minimal audio dashboard."""
 from __future__ import annotations
 
-import json
-import os
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QTimer
@@ -21,6 +19,7 @@ from PySide6.QtWidgets import (
 from audio.pipeline import AudioPipeline, PipelineStats
 from devices.manager import DeviceInfo, has_virtual_cable, inputs, list_devices, outputs, virtual_cable_outputs
 from engine_binding.cv_core import CoreLib, CvEngineType
+from .config import load_settings, resolve_config_path, save_settings
 from .widgets import LevelMeter, VadLight
 
 BRAND = "ClearVoice"
@@ -61,10 +60,9 @@ class MainWindow(QMainWindow):
         self.pipeline: AudioPipeline | None = None
         self._devices: list[DeviceInfo] = []
         if config_path is None:
-            config_path = Path(os.environ.get("CLEARVOICE_CONFIG", "")) or (
-                Path.home() / ".clearvoice" / "config.json"
-            )
+            config_path = resolve_config_path()
         self._config_path = Path(config_path)
+        self._settings_error_logged = False
         self.setWindowTitle(f"{BRAND} — {TAGLINE}")
         self.setMinimumSize(560, 520)
         self.setStyleSheet(DARK_QSS)
@@ -216,27 +214,22 @@ class MainWindow(QMainWindow):
 
     # ------------------------------------------------------- config persistence
     def _save_settings(self, *args) -> None:
+        data = {
+            "input_device": self.input_combo.currentData(),
+            "output_device": self.output_combo.currentData(),
+            "engine": int(self.engine_combo.currentData()) if self.engine_combo.currentData() is not None else 0,
+            "suppression": bool(self.suppress_check.isChecked()),
+        }
         try:
-            self._config_path.parent.mkdir(parents=True, exist_ok=True)
-            self._config_path.write_text(
-                json.dumps(
-                    {
-                        "input_device": self.input_combo.currentData(),
-                        "output_device": self.output_combo.currentData(),
-                        "engine": int(self.engine_combo.currentData()) if self.engine_combo.currentData() is not None else 0,
-                        "suppression": bool(self.suppress_check.isChecked()),
-                    },
-                    indent=2,
-                ),
-                encoding="utf-8",
-            )
+            save_settings(self._config_path, data)
         except Exception as e:
-            self._log(f"could not save settings: {e}")
+            if not self._settings_error_logged:  # log once, not on every signal
+                self._settings_error_logged = True
+                self._log(f"could not save settings to {self._config_path}: {e}")
 
     def _load_settings(self) -> None:
-        try:
-            cfg = json.loads(self._config_path.read_text(encoding="utf-8"))
-        except Exception:
+        cfg = load_settings(self._config_path)
+        if not cfg:
             return
         for combo, key in ((self.input_combo, "input_device"), (self.output_combo, "output_device")):
             v = cfg.get(key)

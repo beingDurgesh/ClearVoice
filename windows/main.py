@@ -22,11 +22,15 @@ def main() -> int:
         print(f"ClearVoice {core.version()}")
         return 0
 
+    from PySide6.QtGui import QFont
     from PySide6.QtWidgets import QApplication
 
     from app.main_window import MainWindow
 
     app = QApplication(sys.argv)
+    # Set an explicit point-size font so Qt never has to derive one from the
+    # stylesheet pixel sizes (avoids the QFont::setPointSize warning on launch).
+    app.setFont(QFont("Segoe UI", 10))
     win = MainWindow(core)
     win.show()
     return app.exec()
