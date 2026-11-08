@@ -1,0 +1,56 @@
+name: android-apk
+
+# Builds the ClearVoice Android APK on every push and attaches it to a GitHub
+# Release when a tag like v0.1.0 is pushed. Users then download it from the
+# Releases page (visible download button) or via `gh release download`.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch: # manual run from the Actions tab
+
+permissions:
+  contents: write # needed to create the Release and upload assets on tags
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Fetch vendored RNNoise model (sha256-verified, not in git)
+        run: python3 scripts/fetch_rnnoise.py
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          sdk-components: |
+            platforms;android-35
+            build-tools;35.0.0
+            cmake;3.22.1
+            ndk;27.3.13750724
+
+      - name: Build debug APK
+        working-directory: android
+        env:
+          ANDROID_HOME: ${{ runner.temp }}/android-sdk
+        run: ./gradlew --no-daemon assembleDebug
+
+      - name: Upload APK as workflow artifact (every run)
+        uses: actions/upload-artifact@v4
+        with:
+          name: clearvoice-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Attach APK to GitHub Release (tag pushes only)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: android/app/build/outputs/apk/debug/app-debug.apk
+          generate_release_notes: true
