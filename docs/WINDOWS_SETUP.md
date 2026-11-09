@@ -16,7 +16,9 @@
 
 ```powershell
 cd "C:\Users\91862\Downloads\Noise Cancellation"
-$env:PYTHONPATH = "tools\pylibs"          # only needed in this sandbox
+python scripts\fetch_rnnoise.py            # REQUIRED first: fetches hash-verified RNNoise + model
+# build the native core once (see README "Build & test")
+$env:PYTHONPATH = "tools\pylibs"          # only needed in the dev sandbox; normal machines use pip
 python windows\main.py
 ```
 
@@ -35,16 +37,28 @@ python windows\main.py
 your mic → ClearVoice (RNNoise) → CABLE Input ──(driver)──► CABLE Output → call app
 ```
 
-## Verified on this machine (2026-11-08)
+## Verified so far (real runs)
 
-- 25/25 pytest tests pass (`python -m pytest windows/tests`).
+Dev machine, 2026-11-08/09:
+- C core tests 30/30; pytest 41/41; JNI host test OK; exe bundle runs.
 - Real-hardware smoke (`python tools/hw_smoke.py 4`): WASAPI mic (48 kHz) →
-  pipeline → WASAPI speakers, volume 0. Result: 405 engine frames in 4 s
-  (real-time cadence), 0 input overflows, 1024 samples startup underflow only,
-  process CPU 9.4%, no errors, VAD 0.000 on room noise, engine RNNoise.
-- **UNVERIFIED until VB-CABLE is installed:** end-to-end "CABLE Output as mic in
-  Discord/Zoom" routing. The device-detection logic is unit-tested with fake
-  device lists; the actual cable test needs the driver installed (admin+reboot).
+  pipeline → WASAPI speakers, volume 0 — 405 engine frames in 4 s, 0 input
+  overflows, process CPU 9–25%, no errors.
+- 60 s drift report on the real mic: buffer 59–103 ms, slope +0.06 ms/s,
+  0 under/overflow after startup.
+- Live A/B on the real mic (`python tools/live_ab_test.py`): peak ≈ −50 dBFS;
+  ON-vs-OFF noise-floor delta ≈ +0.4 dB at 0 gain, +2.5 dB at +12 dB gain —
+  expected, because RNNoise leaves frames below its silence energy gate
+  untouched (see `docs/ARCHITECTURE.md`).
+
+User's real machine (2026-11-09), **confirmed by the user**: VB-CABLE installed
+and detected by the app; mic → ClearVoice → `CABLE Input` → recording from
+`CABLE Output` in Sound Recorder works.
+
+**Still UNVERIFIED (need the user):** Discord/Zoom/Meet end-to-end with
+`CABLE Output` as the call mic; audible effectiveness of suppression during a
+real call; VB-CABLE impulse loopback latency (`python tools/latency_loopback.py`);
+Android APK on a physical phone (`docs/ANDROID_SETUP.md` checklist).
 
 ## Troubleshooting
 

@@ -15,7 +15,8 @@ calls — fully offline, with no audio ever leaving your device.
 ## Features
 
 - Real-time neural noise suppression (RNNoise, vendored + hash-pinned), 20 ms
-  algorithmic latency, ~0.5% of one core (measured — see `docs/BENCHMARKS.md`)
+  algorithmic latency; engine-only CPU ~0.5% of one core, whole GUI process
+  ~9–25% on this laptop (measured — see `docs/BENCHMARKS.md`)
 - Arbitrary input formats handled: any sample rate, 1–8 channels, int16/int32/float32
   (windowed-sinc resampler, measured 76–88 dB SNR)
 - Windows: device pickers, live level meters, VAD indicator, glitch counters,
@@ -42,9 +43,13 @@ tools/           hw smoke test, JNI host test, debug probes
 docs/            architecture, setup, benchmarks, troubleshooting
 ```
 
-## Build & test (verified 2026-11-08 on Windows 11 x64)
+## Build & test (verified 2026-11-08/09 on Windows 11 x64)
 
 ```powershell
+# 0. fetch the hash-verified vendored RNNoise (incl. the 78 MB model weights,
+#    which are git-ignored) — REQUIRED before any build:
+python scripts\fetch_rnnoise.py
+
 # 1. native core (MSVC Build Tools 2022; CMake ships with it)
 $cm = "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
 & $cm -S core -B build\core -G "Visual Studio 17 2022" -A x64
@@ -113,11 +118,27 @@ call app **microphone** = `CABLE Output`. Details + troubleshooting:
 - STOI metric + real recorded samples in benchmarks
 - Device-change auto-recovery, release signing, auto-updater
 
+## Releases / downloading binaries
+
+Binaries are **not** in git. Get them from GitHub Releases (built by CI — see
+`.github/workflows/`):
+
+- **Windows**: download the `ClearVoice-win-x64.zip` asset, unzip, run
+  `ClearVoice\ClearVoice.exe` (needs the bundled `clearvoice_core.dll` next to it;
+  install VB-CABLE separately for the virtual mic — `docs/WINDOWS_SETUP.md`).
+- **Android**: download `app-debug.apk` from Releases, transfer to the phone,
+  allow **"Install unknown apps"** for your browser/file manager, then install.
+  A debug APK is **test-only** (debug key); Play Store/F-Droid distribution needs
+  a release signing key — keystore in GitHub secrets only, **never in git**.
+
+To build binaries yourself instead: `scripts/build_windows_exe.bat` (PyInstaller)
+and `cd android && gradlew assembleDebug`.
+
 ## License
 
-MIT (see `LICENSE`). RNNoise is BSD-3-Clause (vendored with its `COPYING`).
-PySide6/Qt is LGPL (dynamically linked). VB-CABLE is not bundled — we link to the
-vendor's installer.
+MIT (see `LICENSE`); third-party licenses in `THIRD_PARTY_NOTICES.md` (RNNoise
+BSD-3-Clause vendored with its `COPYING`; PySide6/Qt LGPL dynamically linked;
+sounddevice/PortAudio MIT; VB-CABLE not bundled — link to vendor installer).
 
 ## Privacy
 
