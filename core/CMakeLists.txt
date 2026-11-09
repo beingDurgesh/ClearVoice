@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 option(CV_BUILD_TESTS "Build core unit tests" ON)
+option(CV_BUILD_SHARED "Build the shared clearvoice_core library (OFF when embedded via add_subdirectory, e.g. Android)" ON)
 
 # ---- vendored RNNoise (generic C path; pinned in third_party/PINNED.md) ----
 set(RNNOISE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/rnnoise)
@@ -41,11 +42,22 @@ set(CV_SOURCES
     src/c_api.cpp
 )
 
-# Shared library: clearvoice_core.dll (Windows) / libclearvoice_core.so (Android)
-add_library(clearvoice_core SHARED ${CV_SOURCES})
-target_include_directories(clearvoice_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_compile_definitions(clearvoice_core PRIVATE CV_BUILD_DLL)
-target_link_libraries(clearvoice_core PRIVATE rnnoise)
+# Shared library: clearvoice_core.dll (Windows) / libclearvoice_core.so (Android).
+# Skipped when embedded via add_subdirectory with CV_BUILD_SHARED=OFF (then the
+# embedding project builds its own target, e.g. clearvoice_jni, and links the
+# static lib — otherwise two targets would emit the same libclearvoice_core.so).
+if(CV_BUILD_SHARED)
+    add_library(clearvoice_core SHARED ${CV_SOURCES})
+    target_include_directories(clearvoice_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    target_compile_definitions(clearvoice_core PRIVATE CV_BUILD_DLL)
+    target_link_libraries(clearvoice_core PRIVATE rnnoise)
+    if(MSVC)
+        target_compile_definitions(clearvoice_core PRIVATE _CRT_SECURE_NO_WARNINGS)
+        target_compile_options(clearvoice_core PRIVATE /W3 /EHsc)
+    else()
+        target_compile_options(clearvoice_core PRIVATE -O2)
+    endif()
+endif()
 
 # Static library for unit tests and for JNI (Android links this into the .so)
 add_library(clearvoice_core_static STATIC ${CV_SOURCES})
@@ -54,12 +66,18 @@ target_compile_definitions(clearvoice_core_static PUBLIC CV_STATIC)
 target_link_libraries(clearvoice_core_static PUBLIC rnnoise)
 
 if(MSVC)
-    foreach(t clearvoice_core clearvoice_core_static)
+    foreach(t clearvoice_core_static)
         target_compile_definitions(${t} PRIVATE _CRT_SECURE_NO_WARNINGS)
         target_compile_options(${t} PRIVATE /W3 /EHsc)
     endforeach()
+    if(TARGET clearvoice_core)
+        target_compile_definitions(clearvoice_core PRIVATE _CRT_SECURE_NO_WARNINGS)
+        target_compile_options(clearvoice_core PRIVATE /W3 /EHsc)
+    endif()
 else()
-    target_compile_options(clearvoice_core PRIVATE -O2)
+    if(TARGET clearvoice_core)
+        target_compile_options(clearvoice_core PRIVATE -O2)
+    endif()
     target_compile_options(clearvoice_core_static PRIVATE -O2)
 endif()
 
