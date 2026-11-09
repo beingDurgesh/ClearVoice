@@ -31,11 +31,19 @@ jobs:
       - name: Configure + build core (Release x64)
         shell: pwsh
         run: |
+          # CMake's VS generator locates Visual Studio via vswhere.exe — make sure
+          # the Installer dir is on PATH (on some runner images it is not).
+          $vswhere = "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"
+          if (Test-Path $vswhere) {
+            $env:Path = "$(Split-Path $vswhere);$env:Path"
+            & $vswhere -latest -products * -property installationPath
+          }
           $cm = (Get-Command cmake -ErrorAction SilentlyContinue).Source
           if (-not $cm) { $cm = "C:\Program Files\CMake\bin\cmake.exe" }
           Write-Host "cmake: $cm"
           & $cm --version
           & $cm -S core -B build/core -G "Visual Studio 17 2022" -A x64
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & $cm --build build/core --config Release
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
