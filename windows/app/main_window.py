@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from audio.pipeline import AudioPipeline, PipelineStats
-from devices.manager import DeviceInfo, has_virtual_cable, inputs, list_devices, outputs, virtual_cable_outputs
+from devices.manager import DeviceInfo, dedupe_devices, has_virtual_cable, inputs, list_devices, outputs, virtual_cable_outputs
 from engine_binding.cv_core import CoreLib, CvEngineType
 from .config import load_settings, resolve_config_path, save_settings
 from .widgets import LevelMeter, VadLight
@@ -124,6 +124,10 @@ class MainWindow(QMainWindow):
         self.output_combo = QComboBox()
         row_out.addWidget(self.output_combo, 1)
         dev_box.addLayout(row_out)
+        self.show_all_check = QCheckBox("Advanced: show all host APIs (MME/DirectSound/WDM-KS duplicates)")
+        self.show_all_check.setChecked(False)
+        self.show_all_check.toggled.connect(self.refresh_devices)
+        dev_box.addWidget(self.show_all_check)
         root.addLayout(dev_box)
 
         ctl = QHBoxLayout()
@@ -201,7 +205,9 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------- devices
     def refresh_devices(self) -> None:
         try:
-            self._devices = self._device_lister()
+            raw = self._device_lister()
+            self._devices = dedupe_devices(raw, show_all=self.show_all_check.isChecked())
+            self._raw_device_count = len(raw)
         except Exception as e:
             self._log(f"device enumeration failed: {e}")
             return
@@ -374,7 +380,8 @@ class MainWindow(QMainWindow):
         self.stats_label.setText(
             f"Engine: {s.engine_name}   |   {s.in_rate} Hz -> {s.out_rate} Hz   |   "
             f"frames: {s.frames_processed}   |   buffer: {s.buffer_delay_ms:.0f} ms   |   "
-            f"CPU: {s.cpu_percent:.1f}%   |   glitches in/out: {s.in_overflow}/{s.out_underflow}"
+            f"CPU: {s.cpu_percent:.1f}%   |   glitches in: {s.in_overflow}   out: {s.out_underflow} "
+            f"(startup {s.startup_underflow} + steady {s.steady_underflow})   drift-drops: {s.drift_drops}"
         )
 
     def closeEvent(self, event) -> None:  # noqa: N802

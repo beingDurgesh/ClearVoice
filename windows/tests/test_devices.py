@@ -55,6 +55,30 @@ def test_virtual_cable_detection():
     assert virtual_cable_outputs(no_cable) == []
 
 
+def test_dedupe_prefers_wasapi_and_hides_ghosts():
+    from devices.manager import dedupe_devices
+
+    devs = [
+        _dev(0, "Microphone (USB)", 1, 0),                                   # MME
+        _dev(1, "Microphone (USB)", 1, 0),                                   # dup, keep first (non-WASAPI) unless WASAPI exists
+        _dev(2, "Speakers (USB)", 0, 2),
+        _dev(3, "Microphone Array 1 ()", 2, 0),                              # WDM-KS ghost
+        _dev(4, "Microphone (USB)", 1, 0),                                   # WASAPI dup
+    ]
+    # tag hostapis
+    devs[0] = DeviceInfo(0, "Microphone (USB)", 1, 0, 44100.0, "MME")
+    devs[1] = DeviceInfo(1, "Microphone (USB)", 1, 0, 44100.0, "DirectSound")
+    devs[4] = DeviceInfo(4, "Microphone (USB)", 1, 0, 48000.0, "Windows WASAPI")
+    out = dedupe_devices(devs)
+    names = [d.name for d in out]
+    assert names.count("Microphone (USB)") == 1
+    kept = next(d for d in out if d.name == "Microphone (USB)")
+    assert "WASAPI" in kept.hostapi
+    assert not any(n.endswith("()") for n in names)  # ghost hidden
+    # show_all keeps everything
+    assert len(dedupe_devices(devs, show_all=True)) == 5
+
+
 def test_from_sounddevice_dicts():
     raw = [
         {"name": "Mic", "max_input_channels": 2, "max_output_channels": 0, "default_samplerate": 44100, "hostapi": 0},

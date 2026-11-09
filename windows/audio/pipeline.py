@@ -39,8 +39,12 @@ class PipelineStats:
     peak_in_db: float = -120.0    # peak of raw input block, dBFS (for the quiet-mic hint)
     in_overflow: int = 0          # input ring drops (worker too slow)
     out_overflow: int = 0         # processor ring drops
-    out_underflow: int = 0        # output ring starves (callback faster than worker)
+    out_underflow: int = 0        # output ring starves (callback faster than worker) — cumulative
+    startup_underflow: int = 0    # underflow samples in the first ~0.5 s after start
+    steady_underflow: int = 0     # underflow samples after startup (clock drift / hiccups)
+    drift_drops: int = 0          # samples the drift compensator skipped (producer side)
     buffer_delay_ms: float = 0.0  # output ring fill, ms
+    max_buffer_ms: float = 250.0  # drift-compensation watermark
     cpu_percent: float = 0.0      # worker thread CPU (process_time based)
     error: str | None = None
     input_device: str = ""
@@ -93,6 +97,14 @@ class AudioPipeline:
         self._mono_buf = np.empty(0, dtype=np.float32)
         self.stats = PipelineStats()
         self.tap = None  # optional callable(mono_float32_block) invoked in the output callback (test/diagnostic use)
+        self._start_time = 0.0
+        self._startup_underflow = 0
+        self._startup_underflow_recorded = False
+        self._max_buffer_ms = 250.0
+
+    def set_max_buffer_ms(self, ms: float) -> None:
+        self._max_buffer_ms = float(ms)
+        self.stats.max_buffer_ms = self._max_buffer_ms
 
     # ------------------------------------------------------------ public API
     def start(
@@ -160,9 +172,13 @@ class AudioPipeline:
             self._in_stream.start()
             time.sleep(0.05)
             self._out_stream.start()
+            self._start_time = time.monotonic()
+            self._startup_underflow_recorded = False
+            # note: _max_buffer_ms is set in __init__ / set_max_buffer_ms, not reset here
             self._worker = threading.Thread(target=self._work_loop, name="clearvoice-worker", daemon=True)
             self._worker.start()
             self.stats.running = True
+            self.stats.max_buffer_ms = self._max_buffer_ms
             self.stats.engine_name = self.core.processor_engine_name(self._processor)
             self.stats.in_rate = self._in_rate
             self.stats.out_rate = self._out_rate
@@ -286,15 +302,30 @@ class AudioPipeline:
                     if got > 0:
                         n_out, rs = self.core.resampler_process(self._out_resampler, buf48[:got], self._rs_buf.size)
                         if n_out > 0:
-                            self.core.ring_write(self._out_ring, rs)
-                            self.stats.out_level_db = _rms_db(rs)
+                            # Bounded-latency drift compensation (producer side, safe):
+                            # if the output ring is above the watermark, skip writing
+                            # this block instead of letting the delay grow unbounded
+                            # (happens when input and output clocks drift apart).
+                            readable = self.core.ring_readable(self._out_ring)
+                            watermark = int(self._max_buffer_ms / 1000.0 * self._out_rate)
+                            if readable > watermark:
+                                self.stats.drift_drops += n_out
+                            else:
+                                self.core.ring_write(self._out_ring, rs)
+                                self.stats.out_level_db = _rms_db(rs)
                         did_work = True
                 # stats
                 self.stats.frames_processed = self.core.processor_frames_processed(self._processor)
                 self.stats.vad = self.core.processor_last_vad(self._processor)
                 self.stats.in_overflow = ring.overflow if ring else 0
                 self.stats.out_overflow = self.core.processor_out_overflow(self._processor)
-                self.stats.out_underflow = self.core.ring_underflow(self._out_ring)
+                total_underflow = self.core.ring_underflow(self._out_ring)
+                if not self._startup_underflow_recorded and (time.monotonic() - self._start_time) >= 0.5:
+                    self._startup_underflow_recorded = True
+                    self._startup_underflow = total_underflow
+                self.stats.out_underflow = total_underflow
+                self.stats.startup_underflow = self._startup_underflow
+                self.stats.steady_underflow = total_underflow - self._startup_underflow
                 self.stats.buffer_delay_ms = 1000.0 * self.core.ring_readable(self._out_ring) / max(1, self._out_rate)
                 now = time.perf_counter()
                 dt = now - t0

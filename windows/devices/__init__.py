@@ -8,6 +8,7 @@ from .manager import (
     virtual_cable_outputs,
     has_virtual_cable,
     find_default_input,
+    dedupe_devices,
 )
 
 __all__ = [
@@ -19,4 +20,5 @@ __all__ = [
     "virtual_cable_outputs",
     "has_virtual_cable",
     "find_default_input",
+    "dedupe_devices",
 ]

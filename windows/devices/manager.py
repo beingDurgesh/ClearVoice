@@ -97,6 +97,37 @@ def has_virtual_cable(devs: Sequence[DeviceInfo]) -> bool:
     return bool(virtual_cable_outputs(devs)) and any(d.role == DeviceRole.CABLE_RECORDING for d in devs)
 
 
+def _norm_name(name: str) -> str:
+    return " ".join(name.lower().split())
+
+
+def dedupe_devices(devs: Sequence[DeviceInfo], show_all: bool = False) -> list[DeviceInfo]:
+    """Collapse host-API duplicates and hide junk entries, unless show_all.
+
+    Windows exposes the same physical device via MME / DirectSound / WDM-KS /
+    WASAPI. We prefer WASAPI (shared mode, best latency). Entries with empty
+    product names ("Microphone Array 1 ()") are WDM-KS ghosts — hidden by default.
+    """
+    if show_all:
+        return list(devs)
+    out: list[DeviceInfo] = []
+    seen: dict[str, DeviceInfo] = {}
+    for d in devs:
+        if d.name.rstrip().endswith("()"):
+            continue  # ghost entry with empty product name
+        key = _norm_name(d.name)
+        prev = seen.get(key)
+        if prev is None:
+            seen[key] = d
+            out.append(d)
+        else:
+            # prefer WASAPI
+            if "wasapi" in d.hostapi.lower() and "wasapi" not in prev.hostapi.lower():
+                out[out.index(prev)] = d
+                seen[key] = d
+    return out
+
+
 def find_default_input(devs: Sequence[DeviceInfo]) -> DeviceInfo | None:
     ins = inputs(devs)
     if not ins:
