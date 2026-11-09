@@ -77,6 +77,7 @@ class MainWindow(QMainWindow):
         self.engine_combo.currentIndexChanged.connect(self._save_settings)
         self.suppress_check.toggled.connect(self._save_settings)
         self.suppress_check.toggled.connect(self._on_suppression_toggled)
+        self.hpf_check.toggled.connect(self._save_settings)
         self._dev_timer = QTimer(self)
         self._dev_timer.timeout.connect(self.refresh_devices)
         self._dev_timer.start(2000)
@@ -138,6 +139,10 @@ class MainWindow(QMainWindow):
         ctl.addWidget(self.engine_combo)
         self.suppress_check = QCheckBox("Noise suppression ON")
         self.suppress_check.setChecked(True)
+        self.hpf_check = QCheckBox("80 Hz high-pass (mains hum) — off by default")
+        self.hpf_check.setChecked(False)
+        self.hpf_check.toggled.connect(self._on_hpf_toggled)
+        ctl.addWidget(self.hpf_check)
         ctl.addWidget(self.suppress_check)
         ctl.addStretch()
         self.start_btn = QPushButton("Start")
@@ -258,6 +263,13 @@ class MainWindow(QMainWindow):
         else:
             self._show_error(f"engine switch failed (rc={rc})")
 
+    def _on_hpf_toggled(self, on: bool) -> None:
+        p = self.pipeline
+        if p is not None and p.stats.running:
+            rc = p.set_hpf(on, 80.0)
+            self._log(f"80 Hz high-pass {'ON' if on else 'OFF'} (rc={rc})")
+        self._save_settings()
+
     def _on_gain_changed(self, db: int) -> None:
         self.gain_label.setText(f"{db} dB")
         p = self.pipeline
@@ -273,6 +285,7 @@ class MainWindow(QMainWindow):
             "engine": int(self.engine_combo.currentData()) if self.engine_combo.currentData() is not None else 0,
             "suppression": bool(self.suppress_check.isChecked()),
             "input_gain_db": int(self.gain_slider.value()),
+            "hpf": bool(self.hpf_check.isChecked()),
         }
         try:
             save_settings(self._config_path, data)
@@ -300,6 +313,8 @@ class MainWindow(QMainWindow):
             self.suppress_check.setChecked(bool(cfg["suppression"]))
         if "input_gain_db" in cfg:
             self.gain_slider.setValue(int(cfg["input_gain_db"]))
+        if "hpf" in cfg:
+            self.hpf_check.setChecked(bool(cfg["hpf"]))
 
     # ------------------------------------------------------------ start/stop
     def _on_start_stop(self) -> None:

@@ -26,7 +26,24 @@ Full tables: <benchmarks/results.md> (rendered from <benchmarks/results.json>).
 | Speech + traffic @ 0 dB SNR → output SNR | **19.5 dB** (+19.5 dB) |
 | Speech + fan @ 10 dB → output SNR | 21.4 dB |
 | Babble / 50 Hz hum / keyboard transients | ~0 dB change (voice/transient protection by design) |
-| Clipping introduced by engine | 0 samples on all non-saturated inputs |
+| Clipping introduced by engine | 0 samples on all non-saturated inputs (a soft-limiter now caps output at 0.999) |
+
+## Optional 80 Hz high-pass (post-engine, default OFF) — measured 2026-11-09
+
+4th-order (2× biquad) HPF at 80 Hz, applied **after** the engine (applying it
+before the engine starves RNNoise's silence gate — measured collapse
+18.9→4.5 dB on fan). 40–90 Hz band energy vs input:
+
+| mix | input band dB | HPF off | HPF on | hum removed |
+|---|---|---|---|---|
+| hum @ 0 dB SNR | -5.0 | -4.7 | **-20.0** | ~15 dB |
+| hum @ 10 dB SNR | -12.5 | -12.0 | **-29.1** | ~17 dB |
+| fan @ 0 dB | -32.1 | -28.1 | -37.2 | (fan already handled by engine) |
+
+Tradeoff (measured): on synthetic speech the waveform correlation with the clean
+reference drops 0.99 → 0.81 (phase distortion near the cutoff = slightly thinner
+voice). Hence **default OFF**; enable the GUI checkbox in hum-heavy rooms.
+Direct filter check: 50 Hz sine −17.6 dB, 60 Hz −12.4 dB, 1 kHz −0.0 dB.
 
 ## Expected end-to-end latency (budget, not yet loopback-measured)
 

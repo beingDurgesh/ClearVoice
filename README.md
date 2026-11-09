@@ -93,11 +93,18 @@ call app **microphone** = `CABLE Output`. Details + troubleshooting:
 ## Known limitations (honest)
 
 - RNNoise is conservative: it removes steady noise strongly (~20 dB) but leaves
-  speech-like babble and very quiet frames untouched, by design. No fake
-  "intensity slider" is exposed because the engine doesn't have one.
+  speech-like babble and very quiet frames untouched, by design (frames below its
+  silence energy gate pass through). No fake "intensity slider" is exposed
+  because the engine doesn't have one. If your mic is very quiet (peak < -50 dBFS),
+  use the input-gain slider — the GUI hints at this.
 - Android: a normal app cannot replace the system mic for other apps or cellular
   calls (needs system privileges) — the app provides cleaned audio in-app.
-- 50 Hz mains hum mostly passes the engine's high-pass.
+- 50 Hz mains hum mostly passes RNNoise's internal high-pass; an optional 80 Hz
+  post-engine high-pass (default OFF) removes ~15–17 dB of hum band (measured,
+  docs/BENCHMARKS.md) at the cost of slight voice thinning.
+- Live ON/OFF A/B on a quiet mic (peak ≈ -50 dBFS) showed ~0 dB floor difference
+  — that is the silence gate working as designed, not a toggle bug (the toggle
+  itself is proven by a synthetic test: 13.3 dB floor cut, and it hot-swaps live).
 
 ## Roadmap
 

@@ -31,6 +31,11 @@ public:
      * consumer). Both engines currently share the same frame size. */
     CvError setEngine(CvEngineType type);
 
+    /* Optional high-pass filter applied to the 48 kHz mono stream before the
+     * engine (default OFF). Useful against 50/60 Hz mains hum, which RNNoise's
+     * internal high-pass does not fully remove. */
+    CvError setHpf(bool enabled, float cutoffHz);
+
     CvError push(const void* interleaved, size_t frames, CvSampleFormat fmt);
 
     size_t readOut(float* dst, size_t max_samples) { return out_ring_.read(dst, max_samples); }
@@ -52,6 +57,22 @@ private:
     int in_channels_;
     std::unique_ptr<IEngine> engine_;
     Resampler resampler_;
+    // RBJ biquad high-pass (optional, default off); applied to the 48 kHz mono
+    // stream before the engine. Defined here so the header stays self-contained.
+    struct Biquad {
+        double b0 = 1, b1 = 0, b2 = 0, a1 = 0, a2 = 0;
+        double x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+        bool enabled = false;
+        void configureHpf(double freq, double fs);
+        inline float process(float x) {
+            if (!enabled) return x;
+            const double y = b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
+            x2 = x1; x1 = x;
+            y2 = y1; y1 = y;
+            return static_cast<float>(y);
+        }
+    };
+    Biquad hpf_[2];  // cascaded 2x -> 4th-order high-pass
     FrameFifo fifo_;
     RingBuffer out_ring_;
     std::vector<float> mono_;      // scratch: mono float at input rate

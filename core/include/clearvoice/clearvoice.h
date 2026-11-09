@@ -124,6 +124,8 @@ CV_API const char* cv_processor_engine_name(const CvProcessor* p);
 /* Hot-swap the engine (e.g. suppression ON/OFF while running). Worker thread only.
  * Returns CV_OK on success, CV_ERR_* otherwise. Frame size must match. */
 CV_API CvError cv_processor_set_engine(CvProcessor* p, CvEngineType type);
+/* Optional high-pass filter before the engine (default OFF). enable=0 disables. */
+CV_API CvError cv_processor_set_hpf(CvProcessor* p, int enable, float cutoffHz);
 
 #ifdef __cplusplus
 }

@@ -244,6 +244,12 @@ class AudioPipeline:
             self.stats.engine_name = self.core.processor_engine_name(self._processor)
         return rc
 
+    def set_hpf(self, on: bool, cutoff_hz: float = 80.0) -> int:
+        """Enable/disable the pre-engine high-pass (mains hum). Returns CvError."""
+        if not self._processor:
+            return 1
+        return self.core.processor_set_hpf(self._processor, on, cutoff_hz)
+
     def set_input_gain(self, db: float) -> None:
         """Input gain in dB (default 0 = off). Applied in float domain with
         clipping protection before the engine."""
