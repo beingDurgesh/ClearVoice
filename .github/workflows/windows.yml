@@ -29,9 +29,15 @@ jobs:
           pip install -r windows/requirements.txt pytest
 
       - name: Configure + build core (Release x64)
+        shell: pwsh
         run: |
-          cmake -S core -B build/core -G "Visual Studio 17 2022" -A x64
-          cmake --build build/core --config Release
+          $cm = (Get-Command cmake -ErrorAction SilentlyContinue).Source
+          if (-not $cm) { $cm = "C:\Program Files\CMake\bin\cmake.exe" }
+          Write-Host "cmake: $cm"
+          & $cm --version
+          & $cm -S core -B build/core -G "Visual Studio 17 2022" -A x64
+          & $cm --build build/core --config Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Run C core unit tests
         run: .\build\core\Release\cv_tests.exe
