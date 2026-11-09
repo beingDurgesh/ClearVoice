@@ -18,6 +18,14 @@ pytest-cache-files-*
 
 # Sandbox-fetched tooling (NOT for git): wheels, Android SDK/NDK, Gradle, caches
 tools/pylibs/
+tools/kotlinc/
+tools/compose/
+tools/kotlin-compiler.zip
+tools/coroutines.jar
+tools/core.aar
+tools/core-ktx.aar
+tools/core/
+tools/core-ktx/
 tools/wheels/
 tools/cmake-pkg/
 tools/android-sdk/

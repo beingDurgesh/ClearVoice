@@ -3,7 +3,7 @@ package com.clearvoice.app.audio
 import android.content.Context
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
-import android.media.AudioManager.AudioDeviceCallback
+import android.media.AudioDeviceCallback
 
 /** Lists input (microphone) devices and reports plug/unplug changes. */
 class DeviceMonitor(private val context: Context) {

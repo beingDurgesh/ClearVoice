@@ -51,6 +51,9 @@ class AudioProcessingService : Service() {
     private val statsFlow = MutableStateFlow(Stats())
     val stats: StateFlow<Stats> = statsFlow
 
+    private val audioManager: AudioManager
+        get() = getSystemService(AUDIO_SERVICE) as AudioManager
+
     private var captureThread: Thread? = null
     @Volatile private var stopRequested = false
     private var engine: ClearVoiceEngine? = null
@@ -63,7 +66,7 @@ class AudioProcessingService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-        com.clearvoice.app.AudioProcessingServiceHolder.register(this)
+        AudioProcessingServiceHolder.register(this)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -87,7 +90,7 @@ class AudioProcessingService : Service() {
         } catch (_: InterruptedException) {
         }
         cleanup()
-        com.clearvoice.app.AudioProcessingServiceHolder.unregister(this)
+        AudioProcessingServiceHolder.unregister(this)
         super.onDestroy()
     }
 
@@ -113,6 +116,9 @@ class AudioProcessingService : Service() {
         } catch (_: Exception) {
         }
         audioRecord = null
+        if (Build.VERSION.SDK_INT >= 31) {
+            try { audioManager.clearCommunicationDevice() } catch (_: Exception) { }
+        }
         try {
             monitorTrack?.stop()
         } catch (_: Exception) {
@@ -141,8 +147,13 @@ class AudioProcessingService : Service() {
                 .setAudioSource(MediaRecorder.AudioSource.VOICE_COMMUNICATION)
                 .setAudioFormat(AudioFormat.Builder().setSampleRate(sampleRate).setChannelMask(channels).setEncoding(AudioFormat.ENCODING_PCM_16BIT).build())
                 .setBufferSizeInBytes(bufSize)
-            if (Build.VERSION.SDK_INT >= 23 && micDeviceId != 0) {
-                runCatching { builder.setPreferredDevice(micDeviceId) }
+            if (micDeviceId != 0) {
+                // Route the communication (mic) device. AudioRecord.Builder has no
+                // setPreferredDevice in this SDK stub; use AudioManager (API 31+).
+                val dev = audioManager.getDevices(AudioManager.GET_DEVICES_INPUTS).firstOrNull { it.id == micDeviceId }
+                if (dev != null && Build.VERSION.SDK_INT >= 31) {
+                    try { audioManager.setCommunicationDevice(dev) } catch (_: Exception) { }
+                }
             }
             val record = builder.build()
             if (record.state != AudioRecord.STATE_INITIALIZED) {
@@ -200,9 +211,10 @@ class AudioProcessingService : Service() {
                     }
                     val glitches = eng2.glitchCounts()
                     val now = System.nanoTime()
-                    val cpu = if (now - lastCpuT > 500_000_000L) {
-                        val c = android.os.Process.getElapsedCpuTime() / 1000
-                        val pct = 100f * (c - lastCpuC) / ((now - lastCpuT) / 1_000_000.0 / 1000.0)
+                    val cpu: Float = if (now - lastCpuT > 500_000_000L) {
+                        val c: Long = android.os.Process.getElapsedCpuTime() / 1000L
+                        val wallSec: Double = (now - lastCpuT) / 1_000_000_000.0
+                        val pct: Float = (100.0 * (c - lastCpuC) / (wallSec * 1000.0)).toFloat()
                         lastCpuT = now
                         lastCpuC = c
                         pct
