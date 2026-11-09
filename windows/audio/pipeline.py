@@ -43,6 +43,7 @@ class PipelineStats:
     startup_underflow: int = 0    # underflow samples in the first ~0.5 s after start
     steady_underflow: int = 0     # underflow samples after startup (clock drift / hiccups)
     drift_drops: int = 0          # samples the drift compensator skipped (producer side)
+    out_clips: int = 0            # samples the output soft-limiter compressed
     buffer_delay_ms: float = 0.0  # output ring fill, ms
     max_buffer_ms: float = 250.0  # drift-compensation watermark
     cpu_percent: float = 0.0      # worker thread CPU (process_time based)
@@ -63,6 +64,19 @@ def _peak_db(x: np.ndarray) -> float:
         return -120.0
     p = float(np.max(np.abs(x.astype(np.float64))))
     return 20.0 * np.log10(max(p, 1e-9))
+
+
+def soft_limit(x: np.ndarray, threshold: float = 0.95) -> int:
+    """Soft-knee limiter in float domain: compress above `threshold`, hard cap at
+    0.999 so a downstream int16 conversion can never wrap around. Returns the
+    number of samples that were over the threshold."""
+    a = np.abs(x)
+    over = a > threshold
+    n = int(np.count_nonzero(over))
+    if n:
+        x[over] = np.sign(x[over]) * (threshold + (a[over] - threshold) * 0.25)
+        np.clip(x, -0.999, 0.999, out=x)
+    return n
 
 
 class AudioPipeline:
@@ -253,6 +267,10 @@ class AudioPipeline:
                 if self.tap is not None:
                     self.tap(self._mono_buf[:frames].copy())  # pre-volume tap (memcpy only)
                 outdata[:] = (self._mono_buf[:frames, None] * self._volume)
+                # final-output soft limiter: the engine's pitch filter can overshoot
+                # past 1.0 on loud signals (measured out_max 1.13); float cannot wrap,
+                # but the device's int16 path would — so compress here and count.
+                self.stats.out_clips += soft_limit(outdata)
             else:
                 outdata.fill(0.0)
         except Exception as e:  # never raise into PortAudio

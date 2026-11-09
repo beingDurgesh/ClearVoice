@@ -381,7 +381,7 @@ class MainWindow(QMainWindow):
             f"Engine: {s.engine_name}   |   {s.in_rate} Hz -> {s.out_rate} Hz   |   "
             f"frames: {s.frames_processed}   |   buffer: {s.buffer_delay_ms:.0f} ms   |   "
             f"CPU: {s.cpu_percent:.1f}%   |   glitches in: {s.in_overflow}   out: {s.out_underflow} "
-            f"(startup {s.startup_underflow} + steady {s.steady_underflow})   drift-drops: {s.drift_drops}"
+            f"(startup {s.startup_underflow} + steady {s.steady_underflow})   drift-drops: {s.drift_drops}   out-clips: {s.out_clips}"
         )
 
     def closeEvent(self, event) -> None:  # noqa: N802
