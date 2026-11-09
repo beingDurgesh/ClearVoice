@@ -13,6 +13,7 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
+        ndkVersion = "27.3.13750724"  // keep in sync with .github/workflows/android.yml
 
         externalNativeBuild {
             cmake {
