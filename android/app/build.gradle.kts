@@ -27,10 +27,29 @@ android {
         }
     }
 
+    signingConfigs {
+        create("release") {
+            // Filled from env when the keystore is provided via CI secrets.
+            // Locally: ANDROID_KEYSTORE env or default debug signing (no keystore).
+            val ks = System.getenv("KEYSTORE_PATH")
+            if (ks != null) {
+                storeFile = file(ks)
+                storePassword = System.getenv("KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS")
+                keyPassword = System.getenv("KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // sign only when a keystore is configured (CI secrets); otherwise the
+            // debug key is used and AGP keeps the debug signing
+            if (System.getenv("KEYSTORE_PATH") != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 

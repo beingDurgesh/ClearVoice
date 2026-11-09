@@ -120,19 +120,34 @@ call app **microphone** = `CABLE Output`. Details + troubleshooting:
 
 ## Releases / downloading binaries
 
-Binaries are **not** in git. Get them from GitHub Releases (built by CI — see
-`.github/workflows/`):
+Binaries are **not** in git. Push a tag (`git tag v0.2.0 && git push origin v0.2.0`)
+and CI builds both, attaching them to the GitHub Release at
+`github.com/beingDurgesh/ClearVoice/releases` (appears ~5–15 min after the tag
+push, when the `android-apk` / `windows-core-and-app-tests` runs go green):
 
-- **Windows**: download the `ClearVoice-win-x64.zip` asset, unzip, run
-  `ClearVoice\ClearVoice.exe` (needs the bundled `clearvoice_core.dll` next to it;
-  install VB-CABLE separately for the virtual mic — `docs/WINDOWS_SETUP.md`).
-- **Android**: download `app-debug.apk` from Releases, transfer to the phone,
-  allow **"Install unknown apps"** for your browser/file manager, then install.
-  A debug APK is **test-only** (debug key); Play Store/F-Droid distribution needs
-  a release signing key — keystore in GitHub secrets only, **never in git**.
+- **Windows**: `ClearVoice-win-x64.zip` → unzip → run `ClearVoice\ClearVoice.exe`
+  (bundled `clearvoice_core.dll` sits next to it; install VB-CABLE separately for
+  the virtual mic — `docs/WINDOWS_SETUP.md`).
+- **Android**: `app-*.apk` → transfer to the phone → allow **"Install unknown
+  apps"** for your browser/file manager → tap the APK → install → grant the
+  microphone permission. (Or `adb install app-release.apk` for testers.)
+
+**Signing:** CI builds a *debug* APK unless you configure release signing. To
+enable it, create a keystore once and store it **only** in GitHub secrets
+(Settings → Secrets → Actions — never in git):
+
+```powershell
+keytool -genkeypair -v -keystore release.keystore -alias clearvoice -keyalg RSA -keysize 2048 -validity 10000
+# then:  base64 -w0 release.keystore   -> secret ANDROID_KEYSTORE_B64
+#        secrets KEYSTORE_PASSWORD, KEY_ALIAS=clearvoice, KEY_PASSWORD
+```
+
+With those secrets set, tag builds produce a **signed release APK**
+(`app-release.apk`) that can go to the Play Store / F-Droid.
 
 To build binaries yourself instead: `scripts/build_windows_exe.bat` (PyInstaller)
-and `cd android && gradlew assembleDebug`.
+and `cd android && gradlew assembleDebug` (or `assembleRelease` with
+`KEYSTORE_PATH`/`KEYSTORE_PASSWORD`/`KEY_ALIAS`/`KEY_PASSWORD` env vars set).
 
 ## License
 

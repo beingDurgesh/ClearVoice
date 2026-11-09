@@ -8,6 +8,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write # needed to attach the exe zip to Releases on tags
+
 jobs:
   test:
     runs-on: windows-latest
@@ -60,3 +63,77 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
         run: python -m pytest windows/tests -v
+
+  # Packages the Windows app into build/ClearVoice-win-x64.zip and attaches it to
+  # the GitHub Release on v* tag pushes (and as an artifact on manual runs).
+  package:
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Fetch vendored RNNoise model (sha256-verified, not in git)
+        run: python scripts/fetch_rnnoise.py
+
+      - name: Install Python deps + PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r windows/requirements.txt
+          pip install pyinstaller==6.22.3 pyinstaller-hooks-contrib pefile pywin32-ctypes
+
+      - name: Configure + build core (Release x64)
+        shell: pwsh
+        run: |
+          $vswhere = "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"
+          $gen = "Visual Studio 17 2022"
+          if (Test-Path $vswhere) {
+            $env:Path = "$(Split-Path $vswhere);$env:Path"
+            $vsVer = (& $vswhere -latest -products * -property installationVersion)
+            Write-Host "VS version: $vsVer"
+            if ($vsVer -and [int]($vsVer.Split('.')[0]) -ge 18) { $gen = "Visual Studio 18 2026" }
+          }
+          Write-Host "generator: $gen"
+          $cm = (Get-Command cmake -ErrorAction SilentlyContinue).Source
+          if (-not $cm) { $cm = "C:\Program Files\CMake\bin\cmake.exe" }
+          & $cm -S core -B build/core -G $gen -A x64
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $cm --build build/core --config Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Package with PyInstaller (onedir)
+        shell: pwsh
+        run: |
+          $dll = (Resolve-Path build\core\Release\clearvoice_core.dll).Path
+          python -m PyInstaller --noconfirm --onedir --name ClearVoice `
+            --distpath build\dist --workpath build\pyinstaller --specpath build\pyinstaller `
+            --add-data "$dll;." --paths windows `
+            --hidden-import PySide6.QtCore --hidden-import PySide6.QtGui --hidden-import PySide6.QtWidgets `
+            windows\main.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Smoke-test the exe (--version, no display needed)
+        run: .\build\dist\ClearVoice\ClearVoice.exe --version
+
+      - name: Zip the bundle
+        shell: pwsh
+        run: Compress-Archive -Path build\dist\ClearVoice -DestinationPath build\ClearVoice-win-x64.zip -Force
+
+      - name: Upload exe zip as artifact (every run)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ClearVoice-win-x64
+          path: build\ClearVoice-win-x64.zip
+
+      - name: Attach exe zip to GitHub Release (tag pushes only)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build\ClearVoice-win-x64.zip
+          generate_release_notes: true

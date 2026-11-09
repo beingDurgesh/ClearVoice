@@ -59,20 +59,40 @@ jobs:
         with:
           gradle-version: "8.10.2"
 
-      - name: Build debug APK
+      - name: Decode release keystore (only when the secret exists)
+        env:
+          ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$ANDROID_KEYSTORE_B64" ]; then
+            echo "$ANDROID_KEYSTORE_B64" | base64 -d > android/release.keystore
+            echo "keystore decoded"
+          else
+            echo "no keystore secret -> debug build"
+          fi
+
+      - name: Build APK (release-signed if keystore present, else debug)
         working-directory: android
-        run: gradle --no-daemon assembleDebug
+        env:
+          KEYSTORE_PATH: ${{ github.workspace }}/android/release.keystore
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -f release.keystore ]; then
+            gradle --no-daemon assembleRelease
+          else
+            gradle --no-daemon assembleDebug
+          fi
 
       - name: Upload APK as workflow artifact (every run)
         uses: actions/upload-artifact@v4
         with:
-          name: clearvoice-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: clearvoice-apk
+          path: android/app/build/outputs/apk/*/app-*.apk
 
       - name: Attach APK to GitHub Release (tag pushes only)
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: android/app/build/outputs/apk/debug/app-debug.apk
+          files: android/app/build/outputs/apk/*/app-*.apk
           generate_release_notes: true
-          prerelease: true
