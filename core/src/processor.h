@@ -27,6 +27,10 @@ public:
 
     bool valid() const { return engine_ != nullptr; }
 
+    /* Hot-swap the engine. Only valid on the worker thread (not from readOut's
+     * consumer). Both engines currently share the same frame size. */
+    CvError setEngine(CvEngineType type);
+
     CvError push(const void* interleaved, size_t frames, CvSampleFormat fmt);
 
     size_t readOut(float* dst, size_t max_samples) { return out_ring_.read(dst, max_samples); }

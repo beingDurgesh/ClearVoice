@@ -36,6 +36,7 @@ class PipelineStats:
     in_level_db: float = -120.0   # RMS dBFS of last input block
     out_level_db: float = -120.0  # RMS dBFS of last output block
     vad: float = -1.0
+    peak_in_db: float = -120.0    # peak of raw input block, dBFS (for the quiet-mic hint)
     in_overflow: int = 0          # input ring drops (worker too slow)
     out_overflow: int = 0         # processor ring drops
     out_underflow: int = 0        # output ring starves (callback faster than worker)
@@ -51,6 +52,13 @@ def _rms_db(x: np.ndarray) -> float:
         return -120.0
     r = float(np.sqrt(np.mean(np.square(x.astype(np.float64)))))
     return 20.0 * np.log10(max(r, 1e-9))
+
+
+def _peak_db(x: np.ndarray) -> float:
+    if x.size == 0:
+        return -120.0
+    p = float(np.max(np.abs(x.astype(np.float64))))
+    return 20.0 * np.log10(max(p, 1e-9))
 
 
 class AudioPipeline:
@@ -80,8 +88,11 @@ class AudioPipeline:
         self._out_rate = CV_RATE
         self._blocksize = DEFAULT_BLOCKSIZE
         self._volume = 1.0
+        self._input_gain_db = 0.0
+        self._input_gain = 1.0
         self._mono_buf = np.empty(0, dtype=np.float32)
         self.stats = PipelineStats()
+        self.tap = None  # optional callable(mono_float32_block) invoked in the output callback (test/diagnostic use)
 
     # ------------------------------------------------------------ public API
     def start(
@@ -194,6 +205,21 @@ class AudioPipeline:
     def set_volume(self, v: float) -> None:
         self._volume = float(v)
 
+    def set_engine(self, engine: CvEngineType) -> int:
+        """Hot-swap the suppression engine while running (0=OK). Worker-side call."""
+        if not self._processor:
+            return 1
+        rc = self.core.processor_set_engine(self._processor, engine)
+        if rc == 0:
+            self.stats.engine_name = self.core.processor_engine_name(self._processor)
+        return rc
+
+    def set_input_gain(self, db: float) -> None:
+        """Input gain in dB (default 0 = off). Applied in float domain with
+        clipping protection before the engine."""
+        self._input_gain_db = float(db)
+        self._input_gain = 10.0 ** (self._input_gain_db / 20.0)
+
     # ------------------------------------------------------- RT callbacks
     def _input_callback(self, indata: np.ndarray, frames: int, time_info, status) -> None:
         # Real-time thread: memcpy into the ring, nothing else.
@@ -208,6 +234,8 @@ class AudioPipeline:
         try:
             if self._out_ring and self._mono_buf.size >= frames:
                 self.core.ring_read_padded(self._out_ring, self._mono_buf[:frames])
+                if self.tap is not None:
+                    self.tap(self._mono_buf[:frames].copy())  # pre-volume tap (memcpy only)
                 outdata[:] = (self._mono_buf[:frames, None] * self._volume)
             else:
                 outdata.fill(0.0)
@@ -231,7 +259,20 @@ class AudioPipeline:
                     raw = ring.read(self._in_bytes_per_block)
                     arr = np.frombuffer(raw, dtype=self._dtype)
                     self.stats.in_level_db = _rms_db(arr)
-                    rc = self.core.processor_push(self._processor, arr, self._fmt)
+                    if self._dtype == np.float32 and self._input_gain == 1.0:
+                        self.stats.peak_in_db = _peak_db(arr)
+                        rc = self.core.processor_push(self._processor, arr, self._fmt)
+                    else:
+                        # convert to float32, apply input gain, protect against clipping
+                        f = arr.astype(np.float32)
+                        if self._dtype == np.int16:
+                            f /= 32768.0
+                        elif self._dtype == np.int32:
+                            f /= 2147483648.0
+                        self.stats.peak_in_db = _peak_db(f)
+                        f *= self._input_gain
+                        np.clip(f, -1.0, 1.0, out=f)
+                        rc = self.core.processor_push(self._processor, f, CvSampleFormat.FLOAT32)
                     if rc != 0:
                         self._report_error(f"processor_push error code {rc}")
                     did_work = True

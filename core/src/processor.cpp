@@ -21,6 +21,22 @@ Processor::Processor(CvEngineType engine, int in_sample_rate, int in_channels, s
     }
 }
 
+CvError Processor::setEngine(CvEngineType type) {
+    if (engine_type_ == type && engine_) return CV_OK;
+    std::unique_ptr<IEngine> fresh(createEngine(type));
+    if (!fresh) return CV_ERR_ENGINE;
+    if (engine_ && fresh->frameSize() != engine_->frameSize()) return CV_ERR_UNSUPPORTED;
+    engine_ = std::move(fresh);
+    engine_type_ = type;
+    if (engine_) {
+        const int fs = engine_->frameSize();
+        frame_in_.assign(static_cast<size_t>(fs), 0.0f);
+        frame_out_.assign(static_cast<size_t>(fs), 0.0f);
+    }
+    last_vad_ = -1.0f;
+    return CV_OK;
+}
+
 CvError Processor::push(const void* interleaved, size_t frames, CvSampleFormat fmt) {
     if (!engine_ || !interleaved || frames == 0) return CV_ERR_INVALID_ARG;
     if (in_channels_ <= 0 || in_channels_ > CV_MAX_CHANNELS) return CV_ERR_UNSUPPORTED;

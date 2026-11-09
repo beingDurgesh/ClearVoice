@@ -42,12 +42,6 @@ class FakePipeline:
         self.stats.running = False
 
 
-@pytest.fixture(scope="module")
-def qapp():
-    app = QApplication.instance() or QApplication([])
-    yield app
-
-
 def test_window_builds_and_populates(qapp, core: CoreLib):
     win = MainWindow(core, pipeline_factory=FakePipeline, device_lister=lambda: DEVICES_WITH_CABLE)
     assert win.input_combo.count() == 1  # only the physical mic

@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QPlainTextEdit,
     QPushButton,
+    QSlider,
     QVBoxLayout,
     QWidget,
 )
@@ -75,6 +76,7 @@ class MainWindow(QMainWindow):
         self.output_combo.currentIndexChanged.connect(self._save_settings)
         self.engine_combo.currentIndexChanged.connect(self._save_settings)
         self.suppress_check.toggled.connect(self._save_settings)
+        self.suppress_check.toggled.connect(self._on_suppression_toggled)
         self._dev_timer = QTimer(self)
         self._dev_timer.timeout.connect(self.refresh_devices)
         self._dev_timer.start(2000)
@@ -144,20 +146,45 @@ class MainWindow(QMainWindow):
         self.in_meter = LevelMeter()
         self.out_meter = LevelMeter()
         self.vad_light = VadLight()
-        for m, lbl in ((self.in_meter, "Input"), (self.out_meter, "Output")):
+        self.in_db_label = QLabel("-inf dBFS")
+        self.out_db_label = QLabel("-inf dBFS")
+        self.vad_label = QLabel("VAD —")
+        for m, lbl, db in ((self.in_meter, "Input", self.in_db_label), (self.out_meter, "Output", self.out_db_label)):
             col = QVBoxLayout()
             col.addWidget(m, alignment=Qt.AlignmentFlag.AlignHCenter)
             l = QLabel(lbl)
             l.setAlignment(Qt.AlignmentFlag.AlignHCenter)
             col.addWidget(l)
+            db.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+            col.addWidget(db)
             meters.addLayout(col)
         vcol = QVBoxLayout()
         vcol.addWidget(self.vad_light, alignment=Qt.AlignmentFlag.AlignHCenter)
         vl = QLabel("Voice")
         vl.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         vcol.addWidget(vl)
+        self.vad_label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        vcol.addWidget(self.vad_label)
         meters.addLayout(vcol)
         root.addLayout(meters)
+
+        gain_row = QHBoxLayout()
+        gain_row.addWidget(QLabel("Input gain:"))
+        self.gain_slider = QSlider(Qt.Orientation.Horizontal)
+        self.gain_slider.setRange(0, 24)  # dB, default 0 = off
+        self.gain_slider.setValue(0)
+        self.gain_slider.setMaximumWidth(160)
+        self.gain_slider.valueChanged.connect(self._on_gain_changed)
+        gain_row.addWidget(self.gain_slider)
+        self.gain_label = QLabel("0 dB")
+        gain_row.addWidget(self.gain_label)
+        gain_row.addStretch()
+        root.addLayout(gain_row)
+        self.quiet_hint = QLabel("Input is very quiet (peak < -50 dBFS) — RNNoise leaves quiet frames untouched; try +6..+12 dB gain.")
+        self.quiet_hint.setObjectName("banner")
+        self.quiet_hint.setWordWrap(True)
+        self.quiet_hint.setVisible(False)
+        root.addWidget(self.quiet_hint)
 
         self.stats_label = QLabel("")
         root.addWidget(self.stats_label)
@@ -212,6 +239,26 @@ class MainWindow(QMainWindow):
     def _log(self, msg: str) -> None:
         self.log.appendPlainText(msg)
 
+    def _on_suppression_toggled(self, on: bool) -> None:
+        """Live-apply the suppression toggle while running (hot engine swap)."""
+        p = self.pipeline
+        if p is None or not p.stats.running:
+            return  # applied at next Start
+        engine = self.engine_combo.currentData() if on else CvEngineType.PASSTHROUGH
+        rc = p.set_engine(CvEngineType(int(engine)))
+        name = p.stats.engine_name
+        if rc == 0:
+            self._log(f"suppression {'ON' if on else 'OFF'} -> engine hot-swapped to {name}")
+        else:
+            self._show_error(f"engine switch failed (rc={rc})")
+
+    def _on_gain_changed(self, db: int) -> None:
+        self.gain_label.setText(f"{db} dB")
+        p = self.pipeline
+        if p is not None and p.stats.running:
+            p.set_input_gain(db)
+        self._save_settings()
+
     # ------------------------------------------------------- config persistence
     def _save_settings(self, *args) -> None:
         data = {
@@ -219,6 +266,7 @@ class MainWindow(QMainWindow):
             "output_device": self.output_combo.currentData(),
             "engine": int(self.engine_combo.currentData()) if self.engine_combo.currentData() is not None else 0,
             "suppression": bool(self.suppress_check.isChecked()),
+            "input_gain_db": int(self.gain_slider.value()),
         }
         try:
             save_settings(self._config_path, data)
@@ -244,6 +292,8 @@ class MainWindow(QMainWindow):
                 self.engine_combo.setCurrentIndex(idx)
         if "suppression" in cfg:
             self.suppress_check.setChecked(bool(cfg["suppression"]))
+        if "input_gain_db" in cfg:
+            self.gain_slider.setValue(int(cfg["input_gain_db"]))
 
     # ------------------------------------------------------------ start/stop
     def _on_start_stop(self) -> None:
@@ -317,6 +367,10 @@ class MainWindow(QMainWindow):
         self.in_meter.set_db(s.in_level_db)
         self.out_meter.set_db(s.out_level_db)
         self.vad_light.set_vad(s.vad)
+        self.in_db_label.setText(f"{s.in_level_db:.1f} dBFS")
+        self.out_db_label.setText(f"{s.out_level_db:.1f} dBFS")
+        self.vad_label.setText(f"VAD {s.vad:.2f}" if s.vad >= 0 else "VAD —")
+        self.quiet_hint.setVisible(s.running and s.peak_in_db < -50.0)
         self.stats_label.setText(
             f"Engine: {s.engine_name}   |   {s.in_rate} Hz -> {s.out_rate} Hz   |   "
             f"frames: {s.frames_processed}   |   buffer: {s.buffer_delay_ms:.0f} ms   |   "

@@ -121,6 +121,9 @@ CV_API unsigned long long cv_processor_out_overflow(const CvProcessor* p);
 CV_API int cv_processor_in_rate(const CvProcessor* p);
 CV_API int cv_processor_in_channels(const CvProcessor* p);
 CV_API const char* cv_processor_engine_name(const CvProcessor* p);
+/* Hot-swap the engine (e.g. suppression ON/OFF while running). Worker thread only.
+ * Returns CV_OK on success, CV_ERR_* otherwise. Frame size must match. */
+CV_API CvError cv_processor_set_engine(CvProcessor* p, CvEngineType type);
 
 #ifdef __cplusplus
 }

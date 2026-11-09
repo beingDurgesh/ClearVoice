@@ -137,6 +137,8 @@ class CoreLib:
         L.cv_processor_in_channels.argtypes = [c.c_void_p]
         L.cv_processor_engine_name.restype = c.c_char_p
         L.cv_processor_engine_name.argtypes = [c.c_void_p]
+        L.cv_processor_set_engine.restype = c.c_int
+        L.cv_processor_set_engine.argtypes = [c.c_void_p, c.c_int]
 
     # ------------------------------------------------------------- utilities
     @staticmethod
@@ -255,6 +257,10 @@ class CoreLib:
 
     def processor_engine_name(self, h: int) -> str:
         return self.lib.cv_processor_engine_name(h).decode()
+
+    def processor_set_engine(self, h: int, engine: CvEngineType) -> int:
+        """Hot-swap engine (worker thread only). Returns CvError (0=OK)."""
+        return self.lib.cv_processor_set_engine(h, int(engine))
 
     @staticmethod
     def fmt_for_numpy(dtype: np.dtype) -> CvSampleFormat:

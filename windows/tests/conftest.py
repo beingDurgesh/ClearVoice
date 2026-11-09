@@ -40,3 +40,13 @@ def ws_tmp():
     d = REPO_ROOT / "build" / "pytest-tmp"
     d.mkdir(parents=True, exist_ok=True)
     return d
+
+
+@pytest.fixture(scope="session")
+def qapp():
+    """Shared offscreen QApplication (QT_QPA_PLATFORM=offscreen is set above)."""
+    pytest.importorskip("PySide6")
+    from PySide6.QtWidgets import QApplication
+
+    app = QApplication.instance() or QApplication([])
+    yield app

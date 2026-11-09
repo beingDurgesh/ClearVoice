@@ -308,6 +308,16 @@ CV_API int cv_processor_in_channels(const CvProcessor* p) {
     }
 }
 
+CV_API CvError cv_processor_set_engine(CvProcessor* p, CvEngineType type) {
+    try {
+        auto* proc = reinterpret_cast<clearvoice::Processor*>(p);
+        if (!proc) return CV_ERR_INVALID_ARG;
+        return proc->setEngine(type);
+    } catch (...) {
+        return CV_ERR_ENGINE;
+    }
+}
+
 CV_API const char* cv_processor_engine_name(const CvProcessor* p) {
     try {
         const auto* proc = reinterpret_cast<const clearvoice::Processor*>(p);
