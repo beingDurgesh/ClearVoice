@@ -1,7 +1,11 @@
 name: android-apk
 
-# Builds the ClearVoice Android debug APK. Runs on tag pushes (v*) and manually
-# from the Actions tab. On tag pushes the APK is attached to a GitHub Release.
+# Builds the ClearVoice Android APK on tag pushes (v*) and manual runs.
+# On tag pushes the APK is attached to a GitHub Release.
+#
+# NOTE: we do NOT use android-actions/setup-android — it installs the legacy
+# 'tools' package which Google has removed (sdkmanager: "Failed to find package
+# 'tools'"). Instead we install current cmdline-tools directly.
 
 on:
   push:
@@ -15,6 +19,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
     steps:
       - uses: actions/checkout@v4
 
@@ -33,15 +40,17 @@ jobs:
           done
           exit 1
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-        # this action installs the SDK and exports ANDROID_HOME / ANDROID_SDK_ROOT
-        # for all following steps — do NOT override them
-
-      - name: Install SDK packages
+      - name: Install Android cmdline-tools + packages
         run: |
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.3.13750724"
+          set -e
+          mkdir -p "$ANDROID_HOME/cmdline-tools"
+          curl -sSL --retry 5 -o /tmp/cmdtools.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          rm -rf "$ANDROID_HOME/cmdline-tools/latest" "$ANDROID_HOME/cmdline-tools/cmdline-tools"
+          unzip -q /tmp/cmdtools.zip -d "$ANDROID_HOME/cmdline-tools"
+          mv "$ANDROID_HOME/cmdline-tools/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            "platforms;android-35" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.3.13750724"
           echo "ANDROID_HOME=$ANDROID_HOME"
           ls "$ANDROID_HOME"
 
@@ -54,7 +63,7 @@ jobs:
         working-directory: android
         run: gradle --no-daemon assembleDebug
 
-      - name: Upload APK as workflow artifact
+      - name: Upload APK as workflow artifact (every run)
         uses: actions/upload-artifact@v4
         with:
           name: clearvoice-debug-apk
